@@ -131,8 +131,7 @@ exports.forLib = function (LIB) {
         
         	function initPageManagement () {
         		return LIB.Promise.try(function () {
-        
-        
+
         			var cachedPageContent = {};
         
         			var firewidgets = LIB.Cores.page.adapters.firewidgets.spin(LIB._.extend(contexts.page, {
@@ -226,14 +225,14 @@ exports.forLib = function (LIB) {
         					}
         				}
         			}));
-        
-        
+
+    
         			var previousContainerContexts = null;
         			contexts.page.on("rendered", function (event) {
         
         				// TODO: Move to 'contexts/0/page.container'
         				function initContainerContext (contexts) {
-        					return LIB.Promise.try(function () {
+        					return new LIB.Promise(function (resolve, reject) {
         
         						if (previousContainerContexts) {
         							// TODO: Implement generic destroy for all sub-classed contexts.
@@ -252,22 +251,28 @@ exports.forLib = function (LIB) {
         
         						// NOTE: '.once' will change to '.on' when nested contexts are properly used.
         						contexts.container.once("changed:components", function (components) {
-        							return contexts.adapters.component.firewidgets.instanciateComponents(components).catch(function (err) {
+        							return contexts.adapters.component.firewidgets.instanciateComponents(components).then(function () {
+
+
+console.log("ALL DONE!!!!!!!!!!!!!!! ***********");
+
+        							    return resolve();
+        							}).catch(function (err) {
         								console.error("Error initializing components:", err.stack);
-        								throw err;
+        								return reject(err);
         							});
         						});
-        
+
         						// Boot container.
         						contexts.container.setDomNode(event.domNode);
         					});
         				}
-        
+
         				// TODO: Implement contexts recovery so we can bypass loading everything fresh
         				//       when loading same container again.
         				// TODO: Implement various ways to determine canonical container id.
         
-        				initContainerContext(
+        				return initContainerContext(
         					contexts
         					// TODO: Move to context clone/subclass function.
         //					LIB._.assign(LIB._.clone(contexts), {
@@ -275,7 +280,15 @@ exports.forLib = function (LIB) {
         //					})
         				).catch(function (err) {
         					console.error("Error initializing container context:", err.stack);
-        					throw err;
+        				}).then(function () {
+
+                            // We inform the page that we are done loading, initializing and rendering all components.
+                            // Only after we have notified the page will it allow navigation to a new uri.
+                            // We can notify the page sooner (and allow naviagtion sooner) if the component init logic
+                            // may be interrupted at any time.
+                            // TODO: Notify page sooner once we can interrupt component init logic.
+
+        				    contexts.page.notifyPageAnimated();
         				});
         			});
         
