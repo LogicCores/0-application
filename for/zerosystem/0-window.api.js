@@ -133,7 +133,7 @@ exports.forLib = function (LIB) {
         		return LIB.Promise.try(function () {
 
         			var cachedPageContent = {};
-        
+
         			var firewidgets = LIB.Cores.page.adapters.firewidgets.spin(LIB._.extend(contexts.page, {
         				anchors: {
         					"page-content": function (context) {
@@ -226,45 +226,88 @@ exports.forLib = function (LIB) {
         				}
         			}));
 
-    
-        			var previousContainerContexts = null;
+
+
+                    var cachedSubContexts = {};
+                    var currentSubContext = null;
+
         			contexts.page.on("rendered", function (event) {
-        
+
         				// TODO: Move to 'contexts/0/page.container'
         				function initContainerContext (contexts) {
-        					return new LIB.Promise(function (resolve, reject) {
-        
-        						if (previousContainerContexts) {
-        							// TODO: Implement generic destroy for all sub-classed contexts.
-        							previousContainerContexts.container.destroy();
-        						}
-        						previousContainerContexts = contexts;
-        
-        
-        						contexts.container = new (LIB.Cores.container.forContexts(contexts)).Context(config.container || {});
-        						
-        						contexts.container.setPageContext(event);
-        
-        						contexts.adapters.container = {
-        							firewidgets: LIB.Cores.container.adapters.firewidgets.spin(contexts.container)
-        						};
-        
-        						// NOTE: '.once' will change to '.on' when nested contexts are properly used.
-        						contexts.container.once("changed:components", function (components) {
-        							return contexts.adapters.component.firewidgets.instanciateComponents(components).then(function () {
+    					    if (currentSubContext) {
+    					        currentSubContext.container.hide();
+    					    }
+
+    					    return LIB.Promise.try(function() {
+                                if (cachedSubContexts[event.path]) {
+                                    return null;
+                                }
+            					return new LIB.Promise(function (resolve, reject) {
+
+                                    // TODO: Use a proper helper to branch/subclass the contexts
+
+                                    var subContexts = LIB._.assign({}, contexts);
+                                    subContexts.adapters = LIB._.assign({}, subContexts.adapters);
+
+            						subContexts.container = new (LIB.Cores.container.forContexts(subContexts)).Context(config.container || {});
+            						subContexts.container.setPageContext(event);
+            						subContexts.adapters.container = {
+            							firewidgets: LIB.Cores.container.adapters.firewidgets.spin(subContexts.container)
+            						};
+            
+            
+                                    var topLevelComponents = null;
+                                    
+            						// NOTE: '.once' will change to '.on' when nested contexts are properly used.
+            						subContexts.container.on("changed:components", function (components) {
+            							return subContexts.adapters.component.firewidgets.instanciateComponents(
+            							    components
+                                        ).then(function (_topLevelComponents) {
+/*                                            
+                                            if (topLevelComponents) {
+                                                topLevelComponents.forEach(function topLevelComponent) {
+console.log("destroy ")
+                                                    topLevelComponent.destroy();
+                                                });
+                                            }
+*/
+
+                                            topLevelComponents = _topLevelComponents;
 
 
-console.log("ALL DONE!!!!!!!!!!!!!!! ***********");
+                                            topLevelComponents.forEach(function (topLevelComponent) {
+                                                topLevelComponent.renderTo(components[topLevelComponent.id].domNode);
+                                            });
 
-        							    return resolve();
-        							}).catch(function (err) {
-        								console.error("Error initializing components:", err.stack);
-        								return reject(err);
-        							});
-        						});
+                                            return null;
 
-        						// Boot container.
-        						contexts.container.setDomNode(event.domNode);
+            							}).catch(function (err) {
+            								console.error("Error initializing components:", err.stack);
+            								return reject(err);
+            							});
+            						});
+            						
+
+                                    subContexts.container.on("hide", function () {
+
+                                        topLevelComponents.forEach(function (topLevelComponent) {
+                                            topLevelComponent.hide();
+                                        });
+                                    });
+            						
+
+            						cachedSubContexts[event.path] = subContexts;
+
+    							    return resolve();
+            					});
+    					    }).then(function () {
+
+                                currentSubContext = cachedSubContexts[event.path];
+
+    					        currentSubContext.container.renderTo(event.domNode);
+    					        
+    					        return null;
         					});
         				}
 
