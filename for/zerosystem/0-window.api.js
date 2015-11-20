@@ -9,6 +9,9 @@ exports.forLib = function (LIB) {
         
         exports.boot = function () {
 
+            // TODO: Get verbose flag from config.
+            const VERBOSE = false;
+
         	// This module should contain all coupling between cores and is one way to
         	// couple all cores together. The coupling can change based on which cores are used
         	// in a given context and for what purpose.
@@ -20,6 +23,9 @@ exports.forLib = function (LIB) {
         	var contexts = {};
         
         	function initPage () {
+
+                if (VERBOSE) console.log("initPage()");
+
         		return LIB.Promise.try(function () {
         
         			contexts.time = new (LIB.Cores.time.forContexts(contexts)).Context(config.time || {});
@@ -73,10 +79,16 @@ exports.forLib = function (LIB) {
         		}).catch(function (err) {
         			console.error("Error initializing page context:", err.stack);
         			throw err;
+        		}).then(function () {
+        		    if (VERBOSE) console.log("initPage() done");
+        		    return null;
         		});
         	}
 
         	function initAuthentication () {
+
+                if (VERBOSE) console.log("initAuthentication()");
+
         		return LIB.Promise.try(function () {
         			if (context.config.enableAuthentication === false) {
         				return;
@@ -101,10 +113,16 @@ exports.forLib = function (LIB) {
         		}).catch(function (err) {
         			console.error("Error initializing session:", err.stack);
         			throw err;
+        		}).then(function () {
+        		    if (VERBOSE) console.log("initAuthentication() done");
+        		    return null;
         		});
         	}
 
         	function initData() {
+
+                if (VERBOSE) console.log("initData()");
+
         		return LIB.waitForLibraryProperty("Collections").then(function (collections) {
         			return LIB.Promise.try(function () {
         				Object.keys(collections).forEach(function (alias) {
@@ -123,13 +141,20 @@ exports.forLib = function (LIB) {
 
         			contexts.data.notifyInitialized();
 
+                    return null;
         		}).catch(function (err) {
         			console.error("Error initializing data:", err.stack);
         			throw err;
+        		}).then(function () {
+        		    if (VERBOSE) console.log("initData() done");
+        		    return null;
         		});
         	}
         
         	function initPageManagement () {
+
+                if (VERBOSE) console.log("initPageManagement()");
+
         		return LIB.Promise.try(function () {
 
         			var cachedPageContent = {};
@@ -338,10 +363,16 @@ console.log("destroy ")
         		}).catch(function (err) {
         			console.error("Error initializing page management:", err.stack);
         			throw err;
+        		}).then(function () {
+        		    if (VERBOSE) console.log("initPageManagement() done");
+        		    return null;
         		});
         	}
 
         	function initComponents () {
+
+                if (VERBOSE) console.log("initComponents()");
+
                 // TODO: Revise this to batch-load components before they are needed by pages.
         		return LIB.Promise.try(function () {
         			// DEPRECATED: Use 'application.config.waitForComponents = false'
@@ -367,6 +398,9 @@ console.log("destroy ")
         		}).catch(function (err) {
         			console.error("Error initializing components:", err.stack);
         			throw err;
+        		}).then(function () {
+        		    if (VERBOSE) console.log("initComponents() done");
+        		    return null;
         		});
         	}
 
