@@ -9,9 +9,6 @@ exports.forLib = function (LIB) {
         
         exports.boot = function () {
 
-            // TODO: Get verbose flag from config.
-            const VERBOSE = false;
-
         	// This module should contain all coupling between cores and is one way to
         	// couple all cores together. The coupling can change based on which cores are used
         	// in a given context and for what purpose.
@@ -20,14 +17,16 @@ exports.forLib = function (LIB) {
 
         	var config = context.config.config;
 
+        	LIB.VERBOSE = !!config.env.VERBOSE;
+
         	var contexts = {};
-        
+
         	function initPage () {
 
-                if (VERBOSE) console.log("initPage()");
+                if (LIB.VERBOSE) console.log("initPage()");
 
         		return LIB.Promise.try(function () {
-        
+
         			contexts.time = new (LIB.Cores.time.forContexts(contexts)).Context(config.time || {});
         			contexts.page = new (LIB.Cores.page.forContexts(contexts)).Context(config.page || {});
         			contexts.auth = new (LIB.Cores.auth.forContexts(contexts)).Context(config.auth || {});
@@ -61,7 +60,8 @@ exports.forLib = function (LIB) {
         				window: LIB.Cores.request.adapters.window.spin(contexts.request)
         			};
         			contexts.adapters.template = {
-        				firewidgets: LIB.Cores.template.adapters.firewidgets.spin(contexts.template)
+        				firewidgets: LIB.Cores.template.adapters.firewidgets.spin(contexts.template),
+        				"virtual-dom": LIB.Cores.template.adapters["virtual-dom"].spin(contexts.template)
         			};
         			contexts.adapters.component = {
         				firewidgets: LIB.Cores.component.adapters.firewidgets.spin(contexts.component)
@@ -80,14 +80,14 @@ exports.forLib = function (LIB) {
         			console.error("Error initializing page context:", err.stack);
         			throw err;
         		}).then(function () {
-        		    if (VERBOSE) console.log("initPage() done");
+        		    if (LIB.VERBOSE) console.log("initPage() done");
         		    return null;
         		});
         	}
 
         	function initAuthentication () {
 
-                if (VERBOSE) console.log("initAuthentication()");
+                if (LIB.VERBOSE) console.log("initAuthentication()");
 
         		return LIB.Promise.try(function () {
         			if (context.config.enableAuthentication === false) {
@@ -114,14 +114,14 @@ exports.forLib = function (LIB) {
         			console.error("Error initializing session:", err.stack);
         			throw err;
         		}).then(function () {
-        		    if (VERBOSE) console.log("initAuthentication() done");
+        		    if (LIB.VERBOSE) console.log("initAuthentication() done");
         		    return null;
         		});
         	}
 
         	function initData() {
 
-                if (VERBOSE) console.log("initData()");
+                if (LIB.VERBOSE) console.log("initData()");
 
         		return LIB.waitForLibraryProperty("Collections").then(function (collections) {
         			return LIB.Promise.try(function () {
@@ -146,95 +146,21 @@ exports.forLib = function (LIB) {
         			console.error("Error initializing data:", err.stack);
         			throw err;
         		}).then(function () {
-        		    if (VERBOSE) console.log("initData() done");
+        		    if (LIB.VERBOSE) console.log("initData() done");
         		    return null;
         		});
         	}
         
         	function initPageManagement () {
 
-                if (VERBOSE) console.log("initPageManagement()");
+                if (LIB.VERBOSE) console.log("initPageManagement()");
 
         		return LIB.Promise.try(function () {
-
-        			var cachedPageContent = {};
 
         			var firewidgets = LIB.Cores.page.adapters.firewidgets.spin(LIB._.extend(contexts.page, {
         				anchors: {
         					"page-content": function (context) {
-        
-        						var uri = contexts.page.getBaseUrl() + context.getPath() + ".md.htm";
-        
-        						function fetchPageContent () {
-        
-        							if (
-        								contexts.page.config.alwaysReload === false &&
-        								cachedPageContent[uri]
-        							) {
-        								// TODO: Optionally initiate fetch or HEAD and update page if changed.
-        								return LIB.Promise.resolve(cachedPageContent[uri]);
-        							}
-        							return contexts.adapters.fetch.window.fetch(uri).then(function(response) {
-        								if (response.status !== 200) {
-        									var err = new Error("Error fetching page content");
-        									err.code = response.status;
-        									throw err;
-        								}
-        								return response.text();
-        							}).then(function (html) {
-        								cachedPageContent[uri] = html;
-        								return html;
-        							});
-        						}
-        
-        						// TODO: Cache page objects including new context from initContainerContext() below and just
-        						//       detach/re-attach when navigating in cached mode.
-        						return fetchPageContent().then(function (html) {
-        
-        							// TODO: Remove this once scripts are cached more intelligently in nested contexts.
-        							contexts.component.resetComponentScripts();
-        
-         							return contexts.adapters.component.firewidgets.liftComponentsForPageFragment(
-        								contexts.page,
-        								html
-        							).then(function (htmlish) {
-        								
-        								function getHTML (htmlish) {
-        									if (typeof htmlish === "string") {
-        										return htmlish || "";
-        									} else
-        									if (typeof htmlish === "function") {
-        										return htmlish() || "";
-        									} else {
-        										console.error("htmlish", htmlish);
-        										throw new Error("Unknown factory for htmlish!");
-        									}
-        								}
-        								
-        								// Disable all page scripts thare are still left.
-        								// TODO: Enable running of page scripts for script tags that have a contract for a runtime declared.
-        								// @source http://stackoverflow.com/a/9899441/330439
-        								function removeScripts (text) {
-        									var SCRIPT_REGEX = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi;
-        									while (SCRIPT_REGEX.test(text)) {
-        									    text = text.replace(SCRIPT_REGEX, "");
-        									}
-        									return text;
-        								}
-        
-        								var html = getHTML(htmlish);
-        								html = removeScripts(html);
-        
-        								return {
-        									html: html
-        								};
-        							});
-        						}).catch(function (err) {
-        							console.error("Error fetching page content", err);
-        							return {
-        								html: "Got error status: " + err.code
-        							};
-        						});
+        					    return firewidgets.loadPageContentForContext(context);
         					}
         				},
         				actions: {
@@ -252,7 +178,6 @@ exports.forLib = function (LIB) {
         			}));
 
 
-
                     var cachedSubContexts = {};
                     var currentSubContext = null;
 
@@ -266,73 +191,84 @@ exports.forLib = function (LIB) {
 
     					    return LIB.Promise.try(function() {
                                 if (cachedSubContexts[event.path]) {
-                                    return null;
+                                    return cachedSubContexts[event.path];
                                 }
-            					return new LIB.Promise(function (resolve, reject) {
 
-                                    // TODO: Use a proper helper to branch/subclass the contexts
+                                // TODO: Use a proper helper to branch/subclass the contexts
 
-                                    var subContexts = LIB._.assign({}, contexts);
-                                    subContexts.adapters = LIB._.assign({}, subContexts.adapters);
+                                var subContexts = LIB._.assign({}, contexts);
+                                subContexts.adapters = LIB._.assign({}, subContexts.adapters);
 
-            						subContexts.container = new (LIB.Cores.container.forContexts(subContexts)).Context(config.container || {});
-            						subContexts.container.setPageContext(event);
-            						subContexts.adapters.container = {
-            							firewidgets: LIB.Cores.container.adapters.firewidgets.spin(subContexts.container)
-            						};
-            
-            
-                                    var topLevelComponents = null;
-                                    
-            						// NOTE: '.once' will change to '.on' when nested contexts are properly used.
-            						subContexts.container.on("changed:components", function (components) {
-            							return subContexts.adapters.component.firewidgets.instanciateComponents(
-            							    components
-                                        ).then(function (_topLevelComponents) {
-/*                                            
-                                            if (topLevelComponents) {
-                                                topLevelComponents.forEach(function topLevelComponent) {
-console.log("destroy ")
-                                                    topLevelComponent.destroy();
-                                                });
-                                            }
-*/
+        						subContexts.container = new (LIB.Cores.container.forContexts(subContexts)).Context(config.container || {});
+        						subContexts.container.setPageContext(event);
+        						subContexts.adapters.container = {
+        							firewidgets: LIB.Cores.container.adapters.firewidgets.spin(subContexts.container)
+        						};
+                                
+                                // TODO: Put this elsewhere
+                                subContexts.topLevelComponents = null;
 
-                                            topLevelComponents = _topLevelComponents;
+                                subContexts.container.on("hide", function () {
 
-
-                                            topLevelComponents.forEach(function (topLevelComponent) {
-                                                topLevelComponent.renderTo(components[topLevelComponent.id].domNode);
-                                            });
-
-                                            return null;
-
-            							}).catch(function (err) {
-            								console.error("Error initializing components:", err.stack);
-            								return reject(err);
-            							});
-            						});
-            						
-
-                                    subContexts.container.on("hide", function () {
-
-                                        topLevelComponents.forEach(function (topLevelComponent) {
+                                    if (subContexts.topLevelComponents) {
+                                        subContexts.topLevelComponents.forEach(function (topLevelComponent) {
                                             topLevelComponent.hide();
                                         });
-                                    });
-            						
+                                    }
+                                });
 
-            						cachedSubContexts[event.path] = subContexts;
+        						return (cachedSubContexts[event.path] = subContexts);
 
-    							    return resolve();
-            					});
-    					    }).then(function () {
+    					    }).then(function (currentSubContext) {
 
-                                currentSubContext = cachedSubContexts[event.path];
 
     					        currentSubContext.container.renderTo(event.domNode);
-    					        
-    					        return null;
+
+
+                                var components = {};
+
+                                // We only look for sub components from our template
+                                event.subComponents.forEach(function (name) {
+                        			var componentElement = $('[data-component-id="' + name + '"]', event.domNode);
+                        			var componentId = componentElement.attr("data-component-id");
+                        			components[componentId] = {
+                        			    id: componentId,
+                        			    impl: componentElement.attr("data-component-impl") || "",
+                        			    container: currentSubContext.container,
+                        			    domNode: componentElement
+                        			};
+                        			// HACK: This should be fixed on server.
+                        			if (components[componentId].impl === "null") {
+                        			    components[componentId].impl = "";
+                        			}
+                        		});	        
+
+
+    							return currentSubContext.adapters.component.firewidgets.instanciateComponents(
+    							    components
+                                ).then(function (_topLevelComponents) {
+/*                                            
+                                    if (topLevelComponents) {
+                                        topLevelComponents.forEach(function topLevelComponent) {
+console.log("destroy ")
+                                            topLevelComponent.destroy();
+                                        });
+                                    }
+*/
+
+
+                                    currentSubContext.topLevelComponents = _topLevelComponents;
+
+                                    currentSubContext.topLevelComponents.forEach(function (topLevelComponent) {
+                                        topLevelComponent.renderTo(components[topLevelComponent.id].domNode);
+                                    });
+
+                                    return null;
+
+    							}).catch(function (err) {
+    								console.error("Error initializing components:", err.stack);
+    								throw err;
+    							});
         					});
         				}
 
@@ -357,6 +293,7 @@ console.log("destroy ")
                             // TODO: Notify page sooner once we can interrupt component init logic.
 
         				    contexts.page.notifyPageAnimated();
+        				    return null;
         				});
         			});
         
@@ -364,14 +301,14 @@ console.log("destroy ")
         			console.error("Error initializing page management:", err.stack);
         			throw err;
         		}).then(function () {
-        		    if (VERBOSE) console.log("initPageManagement() done");
+        		    if (LIB.VERBOSE) console.log("initPageManagement() done");
         		    return null;
         		});
         	}
 
         	function initComponents () {
 
-                if (VERBOSE) console.log("initComponents()");
+                if (LIB.VERBOSE) console.log("initComponents()");
 
                 // TODO: Revise this to batch-load components before they are needed by pages.
         		return LIB.Promise.try(function () {
@@ -399,7 +336,7 @@ console.log("destroy ")
         			console.error("Error initializing components:", err.stack);
         			throw err;
         		}).then(function () {
-        		    if (VERBOSE) console.log("initComponents() done");
+        		    if (LIB.VERBOSE) console.log("initComponents() done");
         		    return null;
         		});
         	}
