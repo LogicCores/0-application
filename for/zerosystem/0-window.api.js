@@ -242,6 +242,8 @@ exports.forLib = function (LIB) {
                         			    components[componentId].impl = "";
                         			}
                         		});	        
+                        		
+//                        		currentSubContext.component.resetComponentsForActivePage();
 
 
     							return currentSubContext.adapters.component.firewidgets.instanciateComponents(
