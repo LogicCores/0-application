@@ -19,6 +19,8 @@ exports.forLib = function (LIB) {
 
         	LIB.VERBOSE = !!config.env.VERBOSE;
 
+        	if (LIB.VERBOSE) console.log("Page config:", config);
+
         	var contexts = {};
 
         	function initPage () {
@@ -185,6 +187,7 @@ exports.forLib = function (LIB) {
 
         				// TODO: Move to 'contexts/0/page.container'
         				function initContainerContext (contexts) {
+
     					    if (currentSubContext) {
     					        currentSubContext.container.hide();
     					    }
@@ -219,7 +222,9 @@ exports.forLib = function (LIB) {
 
         						return (cachedSubContexts[event.path] = subContexts);
 
-    					    }).then(function (currentSubContext) {
+    					    }).then(function (_currentSubContext) {
+
+    					        currentSubContext = _currentSubContext;
 
 
     					        currentSubContext.container.renderTo(event.domNode);
