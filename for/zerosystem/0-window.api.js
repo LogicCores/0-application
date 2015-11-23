@@ -43,6 +43,7 @@ exports.forLib = function (LIB) {
         			contexts.aspects = {
         				env: new (LIB.Cores.env.forContexts(contexts)).Context(config.env || {}),
         				service: new (LIB.Cores.service.forContexts(contexts)).Context(config.service || {}),
+        				skin: new (LIB.Cores.skin.forContexts(contexts)).Context(config.skin || {}),
         				page: contexts.page
         			};
         
