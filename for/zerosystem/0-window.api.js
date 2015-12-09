@@ -44,6 +44,7 @@ exports.forLib = function (LIB) {
         				env: new (LIB.Cores.env.forContexts(contexts)).Context(config.env || {}),
         				service: new (LIB.Cores.service.forContexts(contexts)).Context(config.service || {}),
         				skin: new (LIB.Cores.skin.forContexts(contexts)).Context(config.skin || {}),
+        				test: new (LIB.Cores.test.forContexts(contexts)).Context(config.test || {}),
         				page: contexts.page
         			};
         
@@ -55,6 +56,9 @@ exports.forLib = function (LIB) {
         			contexts.adapters["time.moment"] = LIB.Cores.time.adapters.moment.spin(contexts.time);
         			contexts.adapters.time = {
         				moment: contexts.adapters["time.moment"]
+        			};
+        			contexts.adapters.test = {
+        				intern: LIB.Cores.test.adapters.intern.spin(contexts.aspects.test)
         			};
         			contexts.adapters.fetch = {
         				window: LIB.Cores.fetch.adapters.window.spin(contexts.fetch)
